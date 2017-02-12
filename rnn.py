@@ -35,6 +35,12 @@ def cost(y, t):
     """
     return ((t - y) ** 2).sum() / nb_of_samples
 
+def output_gradient(y, t):
+    """
+    Compute the gradient of the MSE cost function with respect to the output y
+    """
+    return 2.0 * (y - t) / nb_of_samples
+
 nb_of_samples = 20
 sequence_len = 10
 
