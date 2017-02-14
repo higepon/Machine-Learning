@@ -4,12 +4,33 @@ import numpy as np
 #
 # Traing RNN to count 1 in stream
 
+nb_of_samples = 20
+sequence_len = 10
+
+# Create input stream randomly
+# Matrix X: nb_of_samples * sequence_len 
+X = np.zeros((nb_of_samples, sequence_len))
+
+# Randomize X for each row
+for row_idx in range(nb_of_samples):
+    # around is round func
+    X[row_idx, :] = np.around(np.random.rand(sequence_len)).astype(int)
+
+# this is correcgt answer
+# nb_of_samples * 1: Each row has count of 1
+t = np.sum(X, axis=1)
+
+
 # Forward step functions
 def update_state(xk, sk, wx, wRec):
     """
     Compute state k from previous sate sk and current input xk,
     by use of the input weights (wx) and recursive weights (wRec).
     """
+    # xk: input at time k
+    # wx: weights for xk for any k: Same value as it's reccurrent
+    # sk: state at time k
+    # wRec: weights for sk for any k: Same value as it's reccurent
     return xk * wx + sk * wRec
 
 def forward_states(X, wx, wRec):
@@ -20,10 +41,12 @@ def forward_states(X, wx, wRec):
     """
     # initialize the matrix that holds all state for all input sequences.
     # The initial state s0 is set to 0
+    # note that State is s0 from sk we have k+1 states here
     S = np.zeros((X.shape[0], X.shape[1] + 1))
 
     # Use the reccurrence relation defined by update_state to update the
     # states through time
+    # note that this is vecterized implmentation
     for k in range(0, X.shape[1]):
         # S[k] = S[k - 1] * wRec + X[k] * wx
         S[:, k + 1] = update_state(X[:,k], S[:,k], wx, wRec)
@@ -55,7 +78,7 @@ def backward_gradient(X, S, grad_out, wRec):
     wRec_grad = 0
     for k in range(X.shape[1], 0, -1):
         # Computed the parameter gradients and accumulate the results.
-        wx_grad += np.sum(grad_over_time[:,k] * X[:,k -1])
+        wx_grad += np.sum(grad_over_time[:,k] * X[:,k-1])
         wRec_grad += np.sum(grad_over_time[:,k] * S[:,k-1])
         # Compute the gradient at the otout of the previous layer
         grad_over_time[:,k-1] = grad_over_time[:,k] * wRec
@@ -78,23 +101,12 @@ def update_rprop(X, t, W, W_prev_sign, W_delta, eta_p, eta_n):
     W_sign = np.sign(W_grads) # Sign of new gradient
     # Update the Delta (update value) for ewach weight paramter seperately
     for i, _ in enumerate(W):
-        if W_sign[1] == W_prev_sign[i]:
+        if W_sign[i] == W_prev_sign[i]:
             W_delta[i] *= eta_p
         else:
             W_delta[i] *= eta_n
     return W_delta, W_sign
 
-nb_of_samples = 20
-sequence_len = 10
-
-# Creat input stream randomly
-X = np.zeros((nb_of_samples, sequence_len))
-for row_idx in range(nb_of_samples):
-    # around is round func
-    X[row_idx, :] = np.around(np.random.rand(sequence_len)).astype(int)
-
-# this is correcgt answer
-t = np.sum(X, axis=1)
 
 eta_p = 1.2
 eta_n = 0.5
@@ -111,4 +123,5 @@ for i in range(500):
         W[i] -= W_sign[i] * W_delta[i]
     ls_of_ws.append((W[0], W[1]))
 
-print('Final weights are', W)
+print('Final weights are: wx = {0},  wRec = {1}'.format(W[0], W[1]))    
+print('Final weights are', W[0], W[1])
