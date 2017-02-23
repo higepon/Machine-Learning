@@ -50,3 +50,11 @@ checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only
 callbacks_list = [checkpoint]
 # fit the model
 model.fit(X_train, T_train, nb_epoch=20, batch_size=128, callbacks=callbacks_list)
+
+# x1:   1010010   37
+# x2: + 1101010   43
+#      -------   --
+# t:  = 0000101   80
+x = np.array([1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0]).reshape(1, 7, 2)
+prediction = model.predict(x, verbose=0)
+print(prediction)
