@@ -10,7 +10,7 @@ from keras.layers import LSTM
 from keras.callbacks import ModelCheckpoint
 from keras.utils import np_utils
 
-version = 1
+version = 2
 weights_dir = "/Users/higepon/Desktop/{0}".format(version)
 nb_timestamps = 7
 nb_variables = 2
@@ -74,7 +74,7 @@ def train():
 def create_model():
     model = Sequential()
     model.add(LSTM(10, input_shape=(nb_timestamps, nb_variables)))
-    model.add(Dropout(0.2))
+#    model.add(Dropout(0.2))
     model.add(Dense(nb_timestamps, activation='relu'))
     model.compile(loss='mean_squared_error', optimizer='adam')
     return model
@@ -104,9 +104,7 @@ def predict():
     for i in range(Xtest.shape[0]):
         printSample(Xtest[i,:,0], Xtest[i,:,1], Ttest[i,:,:], Y[i,:])
         print('')
-    
 
-best_model_path()
 if len(sys.argv) == 2:
     if sys.argv[1] == "--train":
         train()
