@@ -1,4 +1,6 @@
 # Porting http://peterroelants.github.io/posts/rnn_implementation_part02/ using Keras
+import sys
+import os
 import numpy as np
 from keras.models import Sequential
 from keras.layers import Dense
@@ -7,6 +9,11 @@ from keras.layers import Dropout
 from keras.layers import LSTM
 from keras.callbacks import ModelCheckpoint
 from keras.utils import np_utils
+
+version = 1
+weights_dir = "/Users/higepon/Desktop/{0}".format(version)
+nb_timestamps = 7
+nb_variables = 2
 
 def create_dataset(nb_samples, sequence_len):
     """Create a dataset for binary addition and return as input, targets."""
@@ -29,32 +36,61 @@ def create_dataset(nb_samples, sequence_len):
         T[i,:,0] = list(reversed([int(b) for b in format_str.format(nb1+nb2)]))
     return X, T
 
-# X shape: (2000, 7, 2)
-#  2000: train samples
-#  7: bits
-#  2: x1 and x2
-X_train, T_train = create_dataset(2000, 7)
-print('X_train shape: {0}'.format(X_train.shape))
-print('T_train shape: {0}'.format(T_train.shape))
+def train():
+    # X shape: (2000, 7, 2)
+    #  2000: train samples
+    #  7: bits
+    #  2: x1 and x2
+    X_train, T_train = create_dataset(2000, nb_timestamps)
+    print('X_train shape: {0}'.format(X_train.shape))
+    print('T_train shape: {0}'.format(T_train.shape))
+    
+    T_train = np.reshape(T_train, (2000, nb_timestamps))
+    model = create_model()
 
-T_train = np.reshape(T_train, (2000, 7))
+    os.makedirs(weights_dir, exist_ok=True)
+    
+#    filepath="/Users/higepon/Desktop/hage/additions-{epoch:02d}-{loss:.4f}.hdf5"
+    filepath = weights_dir + "/{loss:.4f}"
+    checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
+    callbacks_list = [checkpoint]
+    # fit the model
+    model.fit(X_train, T_train, nb_epoch=8000, batch_size=128, callbacks=callbacks_list)
 
-model = Sequential()
-model.add(LSTM(256, input_shape=(X_train.shape[1], X_train.shape[2])))
-model.add(Dropout(0.2))
-model.add(Dense(T_train.shape[1] ,activation='relu'))
-model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
+def create_model():
+    model = Sequential()
+    model.add(LSTM(10, input_shape=(nb_timestamps, nb_variables)))
+    model.add(Dropout(0.2))
+    model.add(Dense(nb_timestamps, activation='relu'))
+    model.compile(loss='mean_squared_error', optimizer='adam')
+    return model
 
-filepath="/Users/higepon/Desktop/additions-{epoch:02d}-{loss:.4f}.hdf5"
-checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
-callbacks_list = [checkpoint]
-# fit the model
-model.fit(X_train, T_train, nb_epoch=20, batch_size=128, callbacks=callbacks_list)
+def best_model_path():
+    files = os.listdir(weights_dir)
+    files.sort()
+    return "{0}/{1}".format(weights_dir, files[0])
+    
+def predict():
+    model = create_model()
+    model.load_weights(best_model_path())
+    
+    # x1:   1010010   37
+    # x2: + 1101010   43
+    #      -------   --
+    # t:  = 0000101   80
+    x = np.array([1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0]).reshape(1, 7, 2)
+    prediction = model.predict(x, verbose=0)
+    print(np.around(prediction))
 
-# x1:   1010010   37
-# x2: + 1101010   43
-#      -------   --
-# t:  = 0000101   80
-x = np.array([1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0]).reshape(1, 7, 2)
-prediction = model.predict(x, verbose=0)
-print(prediction)
+best_model_path()
+if len(sys.argv) == 2:
+    if sys.argv[1] == "--train":
+        train()
+    elif sys.argv[1] == "--predict":
+        predict()
+    else:
+        print("specify --train or --predict")
+else:
+        print("specify --train or --predict")
+
+exit(-1)
