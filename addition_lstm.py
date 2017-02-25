@@ -15,6 +15,21 @@ weights_dir = "/Users/higepon/Desktop/{0}".format(version)
 nb_timestamps = 7
 nb_variables = 2
 
+def printSample(x1, x2, t, y=None):
+    print(y)
+    """Print a sample in a more visual way."""
+    x1 = ''.join([str(int(d)) for d in x1])
+    x2 = ''.join([str(int(d)) for d in x2])
+    t = ''.join([str(int(d[0])) for d in t])
+    if not y is None:
+        y = ''.join([str(int(d)) for d in y])
+    print('x1:   {:s}   {:2d}'.format(x1, int(''.join(reversed(x1)), 2)))
+    print('x2: + {:s}   {:2d} '.format(x2, int(''.join(reversed(x2)), 2)))
+    print('      -------   --')
+    print('t:  = {:s}   {:2d}'.format(t, int(''.join(reversed(t)), 2)))
+    if not y is None:
+        print('y:  = {:s} {:s}'.format(y, "o" if y == t else "x"))
+
 def create_dataset(nb_samples, sequence_len):
     """Create a dataset for binary addition and return as input, targets."""
     max_int = 2**(sequence_len-1) # Maximum integer that can be added
@@ -49,8 +64,7 @@ def train():
     model = create_model()
 
     os.makedirs(weights_dir, exist_ok=True)
-    
-#    filepath="/Users/higepon/Desktop/hage/additions-{epoch:02d}-{loss:.4f}.hdf5"
+
     filepath = weights_dir + "/{loss:.4f}"
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
     callbacks_list = [checkpoint]
@@ -74,13 +88,23 @@ def predict():
     model = create_model()
     model.load_weights(best_model_path())
     
-    # x1:   1010010   37
-    # x2: + 1101010   43
-    #      -------   --
-    # t:  = 0000101   80
-    x = np.array([1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0]).reshape(1, 7, 2)
-    prediction = model.predict(x, verbose=0)
-    print(np.around(prediction))
+    # # x1:   1010010   37
+    # # x2: + 1101010   43
+    # #      -------   --
+    # # t:  = 0000101   80
+    # x = np.array([1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0]).reshape(1, 7, 2)
+    # prediction = model.predict(x, verbose=0)
+    # print(np.around(prediction))
+
+    nb_test = 5
+    Xtest, Ttest = create_dataset(nb_test, nb_timestamps)
+    # Push test data through network
+    Y = np.around(model.predict(Xtest))
+    # Print out all test examples
+    for i in range(Xtest.shape[0]):
+        printSample(Xtest[i,:,0], Xtest[i,:,1], Ttest[i,:,:], Y[i,:])
+        print('')
+    
 
 best_model_path()
 if len(sys.argv) == 2:
