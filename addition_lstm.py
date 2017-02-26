@@ -1,4 +1,13 @@
 # Porting http://peterroelants.github.io/posts/rnn_implementation_part02/ using Keras
+try:
+    # pydot-ng is a fork of pydot that is better maintained
+    import pydot_ng as pydot
+except ImportError:
+    # fall back on pydot if necessary
+    import pydot
+if not pydot.find_graphviz():
+    raise RuntimeError('Failed to import pydot. You must install pydot'
+                       ' and graphviz for `pydotprint` to work.')
 import sys
 import os
 import numpy as np
@@ -9,6 +18,7 @@ from keras.layers import Dropout
 from keras.layers import LSTM
 from keras.callbacks import ModelCheckpoint
 from keras.utils import np_utils
+from keras.utils.visualize_util import plot
 
 version = 2
 weights_dir = "/Users/higepon/Desktop/{0}".format(version)
@@ -87,7 +97,7 @@ def best_model_path():
 def predict():
     model = create_model()
     model.load_weights(best_model_path())
-    
+#    plot(model, to_file='model.png')    
     # # x1:   1010010   37
     # # x2: + 1101010   43
     # #      -------   --
