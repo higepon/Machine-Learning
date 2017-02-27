@@ -60,7 +60,7 @@ def train():
     filepath = weights_dir + "/{loss:.4f}"
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
     callbacks_list = [checkpoint]
-    model.fit(X_train, y_train, batch_size=600, nb_epoch=15, validation_split=0.05, callbacks=callbacks_list)
+    model.fit(X_train, y_train, batch_size=600, nb_epoch=300, validation_split=0.05, callbacks=callbacks_list)
 
 def create_model():    
     df = pd.read_csv("nikkei.csv", header=None)
@@ -76,13 +76,27 @@ def create_model():
     model.add(LSTM(hidden_neurons, batch_input_shape=(None, length_of_sequences, in_out_neurons), return_sequences=False))  
     model.add(Dense(in_out_neurons))  
     model.add(Activation("linear"))  
-    model.compile(loss="mean_squared_error", optimizer="rmsprop")
+#    model.compile(loss="mean_squared_error", optimizer="rmsprop")
+    model.compile(loss="mean_squared_error", optimizer="adam")
     return (model, X_test, y_test, X_train, y_train)
 
 def best_model_path():
     files = os.listdir(weights_dir)
     files.sort()
     return "{0}/{1}".format(weights_dir, files[0])
+
+def upOrDown(df):
+    ret = []
+    for i in range(len(df)):
+        if i > 0:
+            ret.append(1 if (df[i] - df[i - 1]) > 0 else 0)
+    return ret
+
+def upOrDownLoss(a, b):
+    ret = 0
+    for i in range(len(a)):
+        ret += pow(a[i] - b[i], 2)
+    return ret / len(a)
 
 def predict():
     model, X_test, y_test, _, _ = create_model()
@@ -92,6 +106,7 @@ def predict():
     dataf.columns = ["predict"]
     dataf["input"] = y_test
     dataf.plot(figsize=(15, 5))
+    print("loss:", upOrDownLoss(upOrDown(predicted), upOrDown(y_test)))
     show()    
     
 if len(sys.argv) == 2:
