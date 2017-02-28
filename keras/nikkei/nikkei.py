@@ -26,7 +26,7 @@ import math
 import random
 random.seed(0)
 
-version = 2
+version = 3
 weights_dir = "/Users/higepon/Desktop/{0}-{1}".format(sys.argv[0], version)
 
 def train_test_split(df, test_size=0.1, n_prev = 100):  
@@ -67,7 +67,7 @@ def create_model():
     df[1] = df[1].apply(lambda x: x / 10000)
     df[1] = df[1].astype('float32')
     X = df[[1]]
-    length_of_sequences = 100
+    length_of_sequences = 200
     (X_train, y_train), (X_test, y_test) = train_test_split(X, n_prev=length_of_sequences)
     
     in_out_neurons = 1
