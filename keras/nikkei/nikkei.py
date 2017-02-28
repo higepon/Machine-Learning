@@ -1,14 +1,5 @@
-# From http://qiita.com/yukiB/items/5d5b202af86e3c587843
+# Based on sin curve fitting in http://qiita.com/yukiB/items/5d5b202af86e3c587843
 
-# try:
-#     # pydot-ng is a fork of pydot that is better maintained
-#     import pydot_ng as pydot
-# except ImportError:
-#     # fall back on pydot if necessary
-#     import pydot
-# if not pydot.find_graphviz():
-#     raise RuntimeError('Failed to import pydot. You must install pydot'
-#                        ' and graphviz for `pydotprint` to work.')
 import sys
 import os
 from keras.models import Sequential
@@ -63,7 +54,7 @@ def train():
     model.fit(X_train, y_train, batch_size=600, nb_epoch=300, validation_split=0.05, callbacks=callbacks_list)
 
 def create_model():    
-    df = pd.read_csv("nikkei.csv", header=None)
+    df = pd.read_csv("../../dont_remove_data/nikkei.csv", header=None)
     df[1] = df[1].apply(lambda x: x / 10000)
     df[1] = df[1].astype('float32')
     X = df[[1]]
