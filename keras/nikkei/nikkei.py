@@ -51,6 +51,8 @@ def train():
     filepath = weights_dir + "/{loss:.4f}"
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
     callbacks_list = [checkpoint]
+    print(X_train.shape)
+    print(y_train.shape)
     model.fit(X_train, y_train, batch_size=600, nb_epoch=300, validation_split=0.05, callbacks=callbacks_list)
 
 def create_model():    
