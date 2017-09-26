@@ -13,7 +13,7 @@ image_size = 80 * 80
 ## have sess as ivar
 class PolicyGradientModel:
     def __init__(self):
-        self.__X = tf.placeholder(tf.float32, [image_size, None])
+        self.__X = tf.placeholder(tf.float32, [image_size, None], name="X")
 
         self.W1 = tf.Variable(tf.random_normal([num_hidden_layer_size, image_size]), name="W11")
         W2 = tf.Variable(tf.random_normal([1, num_hidden_layer_size]), name="W2A")
@@ -41,17 +41,25 @@ class PolicyGradientModel:
 
         ## reward for each action take for input
         ## shape=[1, batch_size]
-        advantages = tf.placeholder(tf.float32, shape=[None])
+        self.__advantages = tf.placeholder(tf.float32, shape=[None], name="advantages")
 
         ## this is negative of expected total reward
         ## todo: confirm if reduce_sum is right way
-        loss = tf.reduce_sum(-log_probs * advantages)
+        loss = tf.reduce_sum(-log_probs * self.__advantages)
 
         optimizer = tf.train.AdamOptimizer(learning_rate=0.005)
-        minimize = optimizer.minimize(loss)
+        self.__train = optimizer.minimize(loss)
 
-    def sample(self, sess2, x):
-        return sess2.run(self.__probs, {self.__X: x})
+    def act(self, sess, observation):
+        sampled_prob = sess.run(self.__probs, {self.__X: observation})
+        ## todo breaking abstraction here :)
+        action = 2 if np.random.uniform() < sampled_prob else 3  # roll the dice!
+        return action
+
+    def train(self, sess, observations, actions, rewards):
+        feed_dict = { self.__X: observations,
+                self.__advantages: rewards }
+        return sess.run(self.__train, feed_dict=feed_dict)
 
 
 
@@ -89,6 +97,9 @@ with tf.Session() as sess:
     #sess.run(tf.initialize_all_variables())
 
     observation = env.reset()
+    print(env.env.action_space)
+    observations = []
+    rewards = []
     while True:
         # todo initializer, w1 random
         # get input
@@ -98,11 +109,14 @@ with tf.Session() as sess:
         x = cur_x - prev_x if prev_x is not None else np.zeros([image_size, 1])
         prev_x = cur_x
 
-        sampled_prob = model.sample(sess, x)
-        ## todo]
-        action = 2 if np.random.uniform() < sampled_prob else 3  # roll the dice!
+        action = model.act(sess, x)
+        ## todo
+        print(action)
         observation, reward, done, info = env.step(action)
+        observations.append(cur_x.reshape(-1, 6400))
+        rewards.append(reward)
         if done:
+            print(model.train(sess, np.vstack(observations).T, [], rewards))
             print("done,", reward)
             break
         # sample prob
