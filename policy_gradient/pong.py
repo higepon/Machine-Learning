@@ -8,15 +8,18 @@ image_width = 80
 image_size = 80 * 80
 
 
+## todo
+## use get_variable with proper scope
+## have sess as ivar
 class PolicyGradientModel:
     def __init__(self):
         self.__X = tf.placeholder(tf.float32, [image_size, None])
 
-        W1 = tf.Variable(tf.random_normal([num_hidden_layer_size, image_size]), name="W11")
+        self.W1 = tf.Variable(tf.random_normal([num_hidden_layer_size, image_size]), name="W11")
         W2 = tf.Variable(tf.random_normal([1, num_hidden_layer_size]), name="W2A")
 
         # activation of hidden layer
-        Z1 = tf.matmul(W1, self.__X)
+        Z1 = tf.matmul(self.W1, self.__X)
         tf.assert_equal(tf.shape(Z1)[0], num_hidden_layer_size)
 
         A1 = tf.nn.relu(Z1)
@@ -85,15 +88,23 @@ with tf.Session() as sess:
 #    sess.run(tf.local_variables_initializer())
     #sess.run(tf.initialize_all_variables())
 
-
+    observation = env.reset()
     while True:
         # todo initializer, w1 random
         # get input
-        observation = env.reset()
+
+        #print(observation)
         cur_x = prepro(observation)
         x = cur_x - prev_x if prev_x is not None else np.zeros([image_size, 1])
         prev_x = cur_x
-        print(model.sample(sess, x))
+
+        sampled_prob = model.sample(sess, x)
+        ## todo]
+        action = 2 if np.random.uniform() < sampled_prob else 3  # roll the dice!
+        observation, reward, done, info = env.step(action)
+        if done:
+            print("done,", reward)
+            break
         # sample prob
 
         # decide action
