@@ -64,13 +64,6 @@ class PolicyGradientModel:
 
 
 
-env = gym.make("Pong-v0")
-observation = env.reset()
-print(tf.__version__)
-#print(observation)
-
-
-observation = env.reset()
 
 ## todo have tensorflow, python, gym_version
 
@@ -97,8 +90,8 @@ def play_episode(sess, agent, env):
         prev_x = cur_x
 
         action = agent.act(sess, x)
-        ## todo
-        print(action)
+        print("Took action", action)
+        # todo refactor this reshape
         observations.append(cur_x.reshape(-1, 6400))
         rewards.append(reward)
 
@@ -106,11 +99,16 @@ def play_episode(sess, agent, env):
     return observations, rewards
 
 
-with tf.Session() as sess:
-    model = PolicyGradientModel()
-    sess.run(tf.global_variables_initializer())
+def main():
+    env = gym.make("Pong-v0")
 
-    print(model)
+    with tf.Session() as sess:
+        model = PolicyGradientModel()
+        sess.run(tf.global_variables_initializer())
+
+        print(model)
+        observations, rewards = play_episode(sess, model, env)
+        print(model.train(sess, np.vstack(observations).T, [], rewards))
 
     #with tf.Session() as sess:
 #    sess.run(tf.global_variables_initializer())
@@ -121,8 +119,6 @@ with tf.Session() as sess:
 #    print(env.env.action_space)
 #    observations = []
 #    rewards = []
-    observations, rewards = play_episode(sess, model, env)
-    print(model.train(sess, np.vstack(observations).T, [], rewards))
 
 
     # do it until done?
@@ -142,3 +138,4 @@ with tf.Session() as sess:
 #print("x.shape", x.shape, "W.shape", W.shape)
 
 #b = tf.Variable(tf.zeros([10]))
+main()
