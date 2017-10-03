@@ -11,6 +11,7 @@ image_size = 80 * 80
 ## todo
 ## use get_variable with proper scope
 ## have sess as ivar
+## rename this to agent
 class PolicyGradientModel:
     def __init__(self):
         self.__X = tf.placeholder(tf.float32, [image_size, None], name="X")
@@ -84,7 +85,27 @@ def prepro(I):
   return I.astype(np.float).ravel().reshape(image_size, 1)
 
 
-prev_x = None
+def play_episode(sess, agent, env):
+    observation, reward, done = env.reset(), 0, False
+
+    observations = []
+    rewards = []
+    prev_x = None
+    while not done:
+        cur_x = prepro(observation)
+        x = cur_x - prev_x if prev_x is not None else np.zeros([image_size, 1])
+        prev_x = cur_x
+
+        action = agent.act(sess, x)
+        ## todo
+        print(action)
+        observations.append(cur_x.reshape(-1, 6400))
+        rewards.append(reward)
+
+        observation, reward, done, _ = env.step(action)
+    return observations, rewards
+
+
 with tf.Session() as sess:
     model = PolicyGradientModel()
     sess.run(tf.global_variables_initializer())
@@ -96,35 +117,13 @@ with tf.Session() as sess:
 #    sess.run(tf.local_variables_initializer())
     #sess.run(tf.initialize_all_variables())
 
-    observation = env.reset()
-    print(env.env.action_space)
-    observations = []
-    rewards = []
-    while True:
-        # todo initializer, w1 random
-        # get input
+#    observation = env.reset()
+#    print(env.env.action_space)
+#    observations = []
+#    rewards = []
+    observations, rewards = play_episode(sess, model, env)
+    print(model.train(sess, np.vstack(observations).T, [], rewards))
 
-        #print(observation)
-        cur_x = prepro(observation)
-        x = cur_x - prev_x if prev_x is not None else np.zeros([image_size, 1])
-        prev_x = cur_x
-
-        action = model.act(sess, x)
-        ## todo
-        print(action)
-        observation, reward, done, info = env.step(action)
-        observations.append(cur_x.reshape(-1, 6400))
-        rewards.append(reward)
-        if done:
-            ## I'll have to all todos here?
-            print(model.train(sess, np.vstack(observations).T, [], rewards))
-            print("done,", reward)
-            break
-        # sample prob
-
-        # decide action
-
-    # accumulate reward
 
     # do it until done?
 
