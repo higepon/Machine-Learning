@@ -116,6 +116,7 @@ with tf.Session() as sess:
         observations.append(cur_x.reshape(-1, 6400))
         rewards.append(reward)
         if done:
+            ## I'll have to all todos here?
             print(model.train(sess, np.vstack(observations).T, [], rewards))
             print("done,", reward)
             break
