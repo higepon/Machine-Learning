@@ -90,7 +90,6 @@ def play_episode(sess, agent, env):
         prev_x = cur_x
 
         action = agent.act(sess, x)
-        print("Took action", action)
         # todo refactor this reshape
         observations.append(cur_x.reshape(-1, 6400))
         rewards.append(reward)
@@ -102,13 +101,20 @@ def play_episode(sess, agent, env):
 def main():
     env = gym.make("Pong-v0")
 
+    num_episodes_per_batch = 30
+    model = PolicyGradientModel()
+
     with tf.Session() as sess:
-        model = PolicyGradientModel()
         sess.run(tf.global_variables_initializer())
 
-        print(model)
-        observations, rewards = play_episode(sess, model, env)
-        print(model.train(sess, np.vstack(observations).T, [], rewards))
+        batch_observations = []
+        batch_rewards = []
+        for i in range(num_episodes_per_batch):
+            print("episode:", i)
+            observations, rewards = play_episode(sess, model, env)
+            batch_observations.extend(observations)
+            batch_rewards.extend(rewards)
+        print(model.train(sess, np.vstack(batch_observations).T, [], batch_rewards))
 
     #with tf.Session() as sess:
 #    sess.run(tf.global_variables_initializer())
