@@ -8,12 +8,14 @@ image_width = 80
 image_size = 80 * 80
 gamma = 0.99
 
-
+# Tensorflow: 1.10
+# gym: 0.9.3
+# numpy: 1.13.1
 class PolicyGradientAgent:
     def __init__(self, sess):
         with tf.name_scope("PolicyGradientAgent"):
             self._sess = sess
-            self._X, self._log_probs, self._actions, self._advantages, self._loss, self._loss_summary, self._train = self._build_graph()
+            self._X, self._log_probs, self._actions, self._rewards, self._loss, self._loss_summary, self._train = self._build_graph()
 
     @staticmethod
     def _build_graph():
@@ -24,7 +26,6 @@ class PolicyGradientAgent:
         W1 = tf.get_variable(name="W1", shape=[num_hidden_layer_size, image_size], initializer=weight_init)
         Z1 = tf.matmul(W1, X)
         tf.assert_equal(tf.shape(Z1)[0], num_hidden_layer_size)
-
         A1 = tf.nn.relu(Z1)
         tf.assert_equal(tf.shape(A1)[0], num_hidden_layer_size)
 
@@ -32,7 +33,6 @@ class PolicyGradientAgent:
         W2 = tf.get_variable(name="W2", shape=[1, num_hidden_layer_size], initializer=weight_init)
         Z2 = tf.matmul(W2, A1)
         tf.assert_equal(tf.shape(Z2)[0], 1)
-
         A2 = tf.nn.sigmoid(Z2)
         tf.assert_equal(tf.shape(A2)[0], 1)
 
@@ -41,7 +41,7 @@ class PolicyGradientAgent:
 
         # reward for each action take for input
         # shape=[1, batch_size]
-        advantages = tf.placeholder(tf.float32, shape=[1, None], name="advantages")
+        rewards = tf.placeholder(tf.float32, shape=[1, None], name="rewards")
 
         # to use subtract actions should have taken
         actions = tf.placeholder(tf.float32, shape=[1, None], name="actions")
@@ -51,17 +51,14 @@ class PolicyGradientAgent:
         # When we chose to take opposite action to p(y|x), we should take into account that.
         addjusted_logprob = fake_labels - log_probs
 
-        # We negate objective function as higher reward is better
-        cost_function = -addjusted_logprob * advantages
-
-        # todo: confirm if reduce_sum is right way here.
+        # We negate objective function, because higher reward is better.
+        cost_function = -addjusted_logprob * rewards
         loss = tf.reduce_sum(cost_function)
-
         loss_summary = tf.summary.scalar("loss", loss)
 
         optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
         train = optimizer.minimize(loss)
-        return X, log_probs, actions, advantages, loss, loss_summary, train
+        return X, log_probs, actions, rewards, loss, loss_summary, train
 
     def act(self, observation):
         sampled_prob = self._sess.run(self._log_probs, {self._X: observation})
@@ -76,15 +73,11 @@ class PolicyGradientAgent:
 
         feed_dict = {
             self._X: observations,
-            self._advantages: rewards,
+            self._rewards: rewards,
             self._actions: actions
         }
         return self._sess.run([self._train, self._loss_summary, self._loss, self._log_probs], feed_dict=feed_dict)
 
-
-
-
-## todo have tensorflow, python, gym_version
 
 ## copyright
 def prepro(I):
