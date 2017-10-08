@@ -15,10 +15,11 @@ class PolicyGradientAgent:
     def __init__(self, sess):
         with tf.name_scope("PolicyGradientAgent"):
             self._sess = sess
-            self._X, self._log_probs, self._actions, self._rewards, self._loss, self._loss_summary, self._train = self._build_graph()
+            self._X, self._log_probs, self._actions, self._rewards, self._loss, self._loss_summary, self._global_step, self._train = self._build_graph()
 
     @staticmethod
     def _build_graph():
+        global_step = tf.get_variable("global_step", shape=[], initializer=tf.constant_initializer(0, dtype=tf.int64), dtype=tf.int64, trainable=False)
         X = tf.placeholder(tf.float32, [image_size, None], name="X")
         weight_init = tf.random_normal_initializer(mean=0.0, stddev=0.05)
 
@@ -57,8 +58,11 @@ class PolicyGradientAgent:
         loss_summary = tf.summary.scalar("loss", loss)
 
         optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
-        train = optimizer.minimize(loss)
-        return X, log_probs, actions, rewards, loss, loss_summary, train
+        train = optimizer.minimize(loss, global_step=global_step)
+        return X, log_probs, actions, rewards, loss, loss_summary, global_step, train
+
+    def global_step(self):
+        return self._global_step
 
     def act(self, observation):
         sampled_prob = self._sess.run(self._log_probs, {self._X: observation})
@@ -74,7 +78,7 @@ class PolicyGradientAgent:
         feed_dict = {
             self._X: observations,
             self._rewards: rewards,
-            self._actions: actions
+            self._actions: actions,
         }
         return self._sess.run([self._train, self._loss_summary, self._loss, self._log_probs], feed_dict=feed_dict)
 
@@ -140,12 +144,12 @@ def process_rewards(rewards):
 def main():
     env = gym.make("Pong-v0")
 
-    num_episodes_per_batch = 1
+    num_episodes_per_batch = 50
 
     with tf.Session() as sess:
+        ckpt = tf.train.get_checkpoint_state('./model')
         model = PolicyGradientAgent(sess)
         saver = tf.train.Saver()
-        ckpt = tf.train.get_checkpoint_state('./model')
         if ckpt:
             last_model = ckpt.model_checkpoint_path
             print("load " + last_model)
@@ -166,10 +170,12 @@ def main():
                 batch_observations.extend(observations)
                 batch_rewards.extend(processed_rewards)
                 batch_actions.extend(actions)
-            _, summary, loss, logprogs = model.train(np.vstack(batch_observations).T, np.vstack(actions).T, np.vstack(batch_rewards).T)
+            _, summary, loss, _ = model.train(np.vstack(batch_observations).T, np.vstack(actions).T, np.vstack(batch_rewards).T)
+
             if j % 5 == 0:
                 print("saved model")
-                saver.save(sess, './model/model.ckpt', global_step=j)
+                saver.save(sess, './model/model.ckpt', global_step=model.global_step())
+            print("current_step", sess.run(model.global_step()))
 #            print(logprogs)
             print(loss)
 #            print(hoge)
