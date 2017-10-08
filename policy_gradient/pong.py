@@ -9,8 +9,6 @@ image_size = 80 * 80
 gamma = 0.99
 
 
-## todo
-## have sess as ivar
 class PolicyGradientAgent:
     def __init__(self, sess):
         with tf.name_scope("PolicyGradientAgent"):
