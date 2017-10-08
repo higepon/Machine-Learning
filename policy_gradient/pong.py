@@ -6,6 +6,7 @@ num_hidden_layer_size = 200
 image_height = 80
 image_width = 80
 image_size = 80 * 80
+gamma = 0.99
 
 
 ## todo
@@ -38,29 +39,42 @@ class PolicyGradientModel:
 
         ## log_prob for each input
         ## shape=[1, batch_size]
-        log_probs = tf.log(A2)
+        ## we had log(0) here, so not using log. And also the original script is not using log for some reason.
+        self.__log_probs = A2 # tf.log(A2)
 
         ## reward for each action take for input
         ## shape=[1, batch_size]
-        self.__advantages = tf.placeholder(tf.float32, shape=[None], name="advantages")
+        self.__advantages = tf.placeholder(tf.float32, shape=[1, None], name="advantages")
+
+        ## to use subtract actions should have taken
+        self.__actions = tf.placeholder(tf.float32, shape=[1, None], name="actions")
+        fake_labels = self.__actions == 2
 
         ## this is negative of expected total reward
         ## todo: confirm if reduce_sum is right way
-        loss = tf.reduce_sum(-log_probs * self.__advantages)
+        self.__hoge = -(fake_labels - self.__log_probs) * self.__advantages
+        self.__loss = tf.reduce_sum(self.__hoge)
 
-        optimizer = tf.train.AdamOptimizer(learning_rate=0.005)
-        self.__train = optimizer.minimize(loss)
+        self.__loss_summary = tf.summary.scalar("loss", self.__loss)
+
+        optimizer = tf.train.AdamOptimizer(learning_rate=5e-5)
+        self.__train = optimizer.minimize(self.__loss)
 
     def act(self, sess, observation):
         sampled_prob = sess.run(self.__probs, {self.__X: observation})
         ## todo breaking abstraction here :)
-        action = 2 if np.random.uniform() < sampled_prob else 3  # roll the dice!
+        action = 2 if np.random.uniform() < sampled_prob[0][0] else 3  # roll the dice!
         return action
 
     def train(self, sess, observations, actions, rewards):
+        ## todo normalize shouldn't be here
+        rewards -= np.mean(rewards)
+        rewards /= np.std(rewards)
+
         feed_dict = { self.__X: observations,
-                self.__advantages: rewards }
-        return sess.run(self.__train, feed_dict=feed_dict)
+                self.__advantages: rewards,
+                      self.__actions: actions}
+        return sess.run([self.__train, self.__loss_summary, self.__loss, self.__log_probs, self.__hoge, self.__probs, tf.shape(self.__advantages), tf.shape(self.__log_probs), tf.shape(self.__hoge)], feed_dict=feed_dict)
 
 
 
@@ -83,8 +97,10 @@ def play_episode(sess, agent, env):
 
     observations = []
     rewards = []
+    actions = []
     prev_x = None
     while not done:
+#s        env.render()
         cur_x = prepro(observation)
         x = cur_x - prev_x if prev_x is not None else np.zeros([image_size, 1])
         prev_x = cur_x
@@ -93,28 +109,75 @@ def play_episode(sess, agent, env):
         # todo refactor this reshape
         observations.append(cur_x.reshape(-1, 6400))
         rewards.append(reward)
+        actions.append(action)
 
         observation, reward, done, _ = env.step(action)
-    return observations, rewards
+
+    print(reward, "lost" if reward == 0.0 or reward == -1.0 else "win")
+    return observations, rewards, actions
+
+
+# this is specific to pong
+def process_rewards(rewards):
+    # In one episode, there are some 1 (The COM loses the ball) and -1 (You loses the ball).
+    # The actions led to the result get some rewards based on gamma
+    processed_rewards = np.zeros_like(rewards)
+    current_reward = 0
+    win_count = 0
+    lose_count = 0
+    for t in reversed(range(0, len(rewards))):
+        # this is boundary
+        if rewards[t] == 1.0:
+            win_count = win_count + 1
+        elif rewards[t] == -1.0:
+            lose_count = lose_count + 1
+        if rewards[t] != 0:
+            current_reward = 0
+        current_reward = current_reward * gamma + rewards[t]
+        processed_rewards[t] = current_reward
+    print("win:lose", win_count, ":", lose_count)
+    return processed_rewards
 
 
 def main():
     env = gym.make("Pong-v0")
 
-    num_episodes_per_batch = 30
+    num_episodes_per_batch = 1
     model = PolicyGradientModel()
-
+    saver = tf.train.Saver()
     with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
+        ckpt = tf.train.get_checkpoint_state('./model')
+        if ckpt:
+            last_model = ckpt.model_checkpoint_path
+            print("load " + last_model)
+            saver.restore(sess, last_model)
+        else:
+            sess.run(tf.global_variables_initializer())
 
-        batch_observations = []
-        batch_rewards = []
-        for i in range(num_episodes_per_batch):
-            print("episode:", i)
-            observations, rewards = play_episode(sess, model, env)
-            batch_observations.extend(observations)
-            batch_rewards.extend(rewards)
-        print(model.train(sess, np.vstack(batch_observations).T, [], batch_rewards))
+        train_writer = tf.summary.FileWriter('train', sess.graph)
+
+        for j in range(0, 100000):
+            batch_observations = []
+            batch_rewards = []
+            batch_actions = []
+            for i in range(num_episodes_per_batch):
+                print("batch:", j, "episode:", i)
+                observations, rewards, actions = play_episode(sess, model, env)
+                processed_rewards = process_rewards(rewards)
+                batch_observations.extend(observations)
+                batch_rewards.extend(processed_rewards)
+                batch_actions.extend(actions)
+            _, summary, loss, logprogs, hoge, probs, a_shape, p_shape, h_shape = model.train(sess, np.vstack(batch_observations).T, np.vstack(actions).T, np.vstack(batch_rewards).T)
+            print(a_shape, p_shape, h_shape)
+            if j % 5 == 0:
+                print("saved model")
+                saver.save(sess, './model/model.ckpt', global_step=j)
+#            print(logprogs)
+            print(loss)
+#            print(hoge)
+#            print(probs)
+
+            train_writer.add_summary(summary, j)
 
     #with tf.Session() as sess:
 #    sess.run(tf.global_variables_initializer())
