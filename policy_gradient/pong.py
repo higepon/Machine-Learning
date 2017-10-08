@@ -15,55 +15,57 @@ gamma = 0.99
 ## rename this to agent
 class PolicyGradientModel:
     def __init__(self):
-        self.__X = tf.placeholder(tf.float32, [image_size, None], name="X")
+        with tf.name_scope("PolicyGradientModel"):
+            weight_init = tf.random_normal_initializer(mean=0.0, stddev=0.05)
 
-        self.W1 = tf.Variable(tf.random_normal([num_hidden_layer_size, image_size]), name="W11")
-        W2 = tf.Variable(tf.random_normal([1, num_hidden_layer_size]), name="W2A")
+            self.__X = tf.placeholder(tf.float32, [image_size, None], name="X")
+            # todo: self.W1 necessary?
+            self.W1 = tf.get_variable(name="W1", shape=[num_hidden_layer_size, image_size], initializer=weight_init)
+            W2 = tf.get_variable(name="W2", shape=[1, num_hidden_layer_size], initializer=weight_init)
 
-        # activation of hidden layer
-        Z1 = tf.matmul(self.W1, self.__X)
-        tf.assert_equal(tf.shape(Z1)[0], num_hidden_layer_size)
+            # activation of hidden layer
+            Z1 = tf.matmul(self.W1, self.__X)
+            tf.assert_equal(tf.shape(Z1)[0], num_hidden_layer_size)
 
-        A1 = tf.nn.relu(Z1)
-        tf.assert_equal(tf.shape(A1)[0], num_hidden_layer_size)
+            A1 = tf.nn.relu(Z1)
+            tf.assert_equal(tf.shape(A1)[0], num_hidden_layer_size)
 
-        # activation of output layer
-        Z2 = tf.matmul(W2, A1)
-        tf.assert_equal(tf.shape(Z2)[0], 1)
+            # activation of output layer
+            Z2 = tf.matmul(W2, A1)
+            tf.assert_equal(tf.shape(Z2)[0], 1)
 
-        A2 = tf.nn.sigmoid(Z2)
-        tf.assert_equal(tf.shape(A2)[0], 1)
-        self.__probs = A2
+            A2 = tf.nn.sigmoid(Z2)
+            tf.assert_equal(tf.shape(A2)[0], 1)
+            self.__probs = A2
 
-        # Core of policy gradient
 
-        ## log_prob for each input
-        ## shape=[1, batch_size]
-        ## we had log(0) here, so not using log. And also the original script is not using log for some reason.
-        self.__log_probs = A2 # tf.log(A2)
+            ## log_prob for each input
+            ## shape=[1, batch_size]
+            ## we had log(0) here, so not using log. And also the original script is not using log for some reason.
+            self.__log_probs = A2 # tf.log(A2)
 
-        ## reward for each action take for input
-        ## shape=[1, batch_size]
-        self.__advantages = tf.placeholder(tf.float32, shape=[1, None], name="advantages")
+            ## reward for each action take for input
+            ## shape=[1, batch_size]
+            self.__advantages = tf.placeholder(tf.float32, shape=[1, None], name="advantages")
 
-        ## to use subtract actions should have taken
-        self.__actions = tf.placeholder(tf.float32, shape=[1, None], name="actions")
-        fake_labels = self.__actions == 2
+            ## to use subtract actions should have taken
+            self.__actions = tf.placeholder(tf.float32, shape=[1, None], name="actions")
+            fake_labels = tf.to_float(tf.equal(self.__actions, 2), name="fake_labels")
 
-        # We chose action based on sampled probability p(y|x) and random dice.
-        # When we chose to take opposite action to p(y|x), we should take into account that.
-        addjusted_logprob = fake_labels - self.__log_probs
+            # We chose action based on sampled probability p(y|x) and random dice.
+            # When we chose to take opposite action to p(y|x), we should take into account that.
+            addjusted_logprob = fake_labels - self.__log_probs
 
-        # We negate objective function as higher reward is better
-        self.__hoge = -addjusted_logprob * self.__advantages
+            # We negate objective function as higher reward is better
+            self.__hoge = -addjusted_logprob * self.__advantages
 
-        # todo: confirm if reduce_sum is right way here.
-        self.__loss = tf.reduce_sum(self.__hoge)
+            # todo: confirm if reduce_sum is right way here.
+            self.__loss = tf.reduce_sum(self.__hoge)
 
-        self.__loss_summary = tf.summary.scalar("loss", self.__loss)
+            self.__loss_summary = tf.summary.scalar("loss", self.__loss)
 
-        optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
-        self.__train = optimizer.minimize(self.__loss)
+            optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
+            self.__train = optimizer.minimize(self.__loss)
 
     def act(self, sess, observation):
         sampled_prob = sess.run(self.__probs, {self.__X: observation})
