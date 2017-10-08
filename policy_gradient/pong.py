@@ -12,8 +12,9 @@ gamma = 0.99
 ## todo
 ## have sess as ivar
 class PolicyGradientAgent:
-    def __init__(self):
+    def __init__(self, sess):
         with tf.name_scope("PolicyGradientAgent"):
+            self.__sess = sess
             weight_init = tf.random_normal_initializer(mean=0.0, stddev=0.05)
 
             self.__X = tf.placeholder(tf.float32, [image_size, None], name="X")
@@ -65,13 +66,13 @@ class PolicyGradientAgent:
             optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
             self.__train = optimizer.minimize(self.__loss)
 
-    def act(self, sess, observation):
-        sampled_prob = sess.run(self.__probs, {self.__X: observation})
+    def act(self, observation):
+        sampled_prob = self.__sess.run(self.__probs, {self.__X: observation})
         ## todo breaking abstraction here :)
         action = 2 if np.random.uniform() < sampled_prob[0][0] else 3  # roll the dice!
         return action
 
-    def train(self, sess, observations, actions, rewards):
+    def train(self, observations, actions, rewards):
         ## todo normalize shouldn't be here
         rewards -= np.mean(rewards)
         rewards /= np.std(rewards)
@@ -79,7 +80,7 @@ class PolicyGradientAgent:
         feed_dict = { self.__X: observations,
                 self.__advantages: rewards,
                       self.__actions: actions}
-        return sess.run([self.__train, self.__loss_summary, self.__loss, self.__log_probs, self.__hoge, self.__probs, tf.shape(self.__advantages), tf.shape(self.__log_probs), tf.shape(self.__hoge)], feed_dict=feed_dict)
+        return self.__sess.run([self.__train, self.__loss_summary, self.__loss, self.__log_probs, self.__hoge, self.__probs, tf.shape(self.__advantages), tf.shape(self.__log_probs), tf.shape(self.__hoge)], feed_dict=feed_dict)
 
 
 
@@ -97,7 +98,7 @@ def prepro(I):
   return I.astype(np.float).ravel().reshape(image_size, 1)
 
 
-def play_episode(sess, agent, env):
+def play_episode(agent, env):
     observation, reward, done = env.reset(), 0, False
 
     observations = []
@@ -110,7 +111,7 @@ def play_episode(sess, agent, env):
         x = cur_x - prev_x if prev_x is not None else np.zeros([image_size, 1])
         prev_x = cur_x
 
-        action = agent.act(sess, x)
+        action = agent.act(x)
         # todo refactor this reshape
         observations.append(cur_x.reshape(-1, 6400))
         rewards.append(reward)
@@ -148,9 +149,10 @@ def main():
     env = gym.make("Pong-v0")
 
     num_episodes_per_batch = 1
-    model = PolicyGradientAgent()
-    saver = tf.train.Saver()
+
     with tf.Session() as sess:
+        model = PolicyGradientAgent(sess)
+        saver = tf.train.Saver()
         ckpt = tf.train.get_checkpoint_state('./model')
         if ckpt:
             last_model = ckpt.model_checkpoint_path
@@ -167,12 +169,12 @@ def main():
             batch_actions = []
             for i in range(num_episodes_per_batch):
                 print("batch:", j, "episode:", i)
-                observations, rewards, actions = play_episode(sess, model, env)
+                observations, rewards, actions = play_episode(model, env)
                 processed_rewards = process_rewards(rewards)
                 batch_observations.extend(observations)
                 batch_rewards.extend(processed_rewards)
                 batch_actions.extend(actions)
-            _, summary, loss, logprogs, hoge, probs, a_shape, p_shape, h_shape = model.train(sess, np.vstack(batch_observations).T, np.vstack(actions).T, np.vstack(batch_rewards).T)
+            _, summary, loss, logprogs, hoge, probs, a_shape, p_shape, h_shape = model.train(np.vstack(batch_observations).T, np.vstack(actions).T, np.vstack(batch_rewards).T)
             print(a_shape, p_shape, h_shape)
             if j % 5 == 0:
                 print("saved model")
