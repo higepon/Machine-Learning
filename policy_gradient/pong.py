@@ -10,12 +10,10 @@ gamma = 0.99
 
 
 ## todo
-## use get_variable with proper scope
 ## have sess as ivar
-## rename this to agent
-class PolicyGradientModel:
+class PolicyGradientAgent:
     def __init__(self):
-        with tf.name_scope("PolicyGradientModel"):
+        with tf.name_scope("PolicyGradientAgent"):
             weight_init = tf.random_normal_initializer(mean=0.0, stddev=0.05)
 
             self.__X = tf.placeholder(tf.float32, [image_size, None], name="X")
@@ -150,7 +148,7 @@ def main():
     env = gym.make("Pong-v0")
 
     num_episodes_per_batch = 1
-    model = PolicyGradientModel()
+    model = PolicyGradientAgent()
     saver = tf.train.Saver()
     with tf.Session() as sess:
         ckpt = tf.train.get_checkpoint_state('./model')
