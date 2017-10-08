@@ -50,14 +50,19 @@ class PolicyGradientModel:
         self.__actions = tf.placeholder(tf.float32, shape=[1, None], name="actions")
         fake_labels = self.__actions == 2
 
-        ## this is negative of expected total reward
-        ## todo: confirm if reduce_sum is right way
-        self.__hoge = -(fake_labels - self.__log_probs) * self.__advantages
+        # We chose action based on sampled probability p(y|x) and random dice.
+        # When we chose to take opposite action to p(y|x), we should take into account that.
+        addjusted_logprob = fake_labels - self.__log_probs
+
+        # We negate objective function as higher reward is better
+        self.__hoge = -addjusted_logprob * self.__advantages
+
+        # todo: confirm if reduce_sum is right way here.
         self.__loss = tf.reduce_sum(self.__hoge)
 
         self.__loss_summary = tf.summary.scalar("loss", self.__loss)
 
-        optimizer = tf.train.AdamOptimizer(learning_rate=5e-5)
+        optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
         self.__train = optimizer.minimize(self.__loss)
 
     def act(self, sess, observation):
